@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        build_type: [Debug, Release]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+
+    - name: Build
+      run: cmake --build build -j
+
+    - name: Test
+      working-directory: build
+      run: ctest --output-on-failure
+
+  sanitizer:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Configure CMake (ASan+UBSan)
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+
+    - name: Build
+      run: cmake --build build -j
+
+    - name: Test
+      working-directory: build
+      run: ctest --output-on-failure
+      env:
+        ASAN_OPTIONS: detect_leaks=1:check_initialization_order=1
+        UBSAN_OPTIONS: print_stacktrace=1
+
+  no-exceptions:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Configure CMake (-fno-exceptions -fno-rtti)
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_CXX_FLAGS="-fno-exceptions -fno-rtti"
+
+    - name: Build
+      run: cmake --build build -j
+
+    - name: Test
+      working-directory: build
+      run: ctest --output-on-failure
