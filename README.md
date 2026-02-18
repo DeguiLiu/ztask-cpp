@@ -1,5 +1,9 @@
 # ztask-cpp
 
+[![CI](https://github.com/DeguiLiu/ztask-cpp/actions/workflows/ci.yml/badge.svg)](https://github.com/DeguiLiu/ztask-cpp/actions/workflows/ci.yml)
+[![Code Coverage](https://github.com/DeguiLiu/ztask-cpp/actions/workflows/coverage.yml/badge.svg)](https://github.com/DeguiLiu/ztask-cpp/actions/workflows/coverage.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A C++14 header-only cooperative task scheduler for embedded systems.
 
 ## Features

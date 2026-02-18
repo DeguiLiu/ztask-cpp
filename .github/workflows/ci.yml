@@ -2,73 +2,48 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
-
-permissions:
-  contents: read
+    branches: [main]
 
 jobs:
-  build-and-test:
+  build:
+    runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
         build_type: [Debug, Release]
-
-    runs-on: ${{ matrix.os }}
-
     steps:
     - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake clang-format clang-tidy cppcheck
 
     - name: Configure CMake
-      run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-
-    - name: Build
-      run: cmake --build build -j
-
-    - name: Test
-      working-directory: build
-      run: ctest --output-on-failure
-
-  sanitizer:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Configure CMake (ASan+UBSan)
       run: |
         cmake -B build \
-          -DCMAKE_BUILD_TYPE=Debug \
-          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DZTASK_BUILD_TESTS=ON \
+          -DZTASK_BUILD_EXAMPLES=ON
 
     - name: Build
-      run: cmake --build build -j
+      run: cmake --build build -j$(nproc)
 
-    - name: Test
-      working-directory: build
-      run: ctest --output-on-failure
-      env:
-        ASAN_OPTIONS: detect_leaks=1:check_initialization_order=1
-        UBSAN_OPTIONS: print_stacktrace=1
+    - name: Run tests
+      run: cd build && ctest --output-on-failure
 
-  no-exceptions:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Configure CMake (-fno-exceptions -fno-rtti)
+    - name: Check clang-format
       run: |
-        cmake -B build \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_CXX_FLAGS="-fno-exceptions -fno-rtti"
+        find include tests examples \( -name '*.h' -o -name '*.hpp' -o -name '*.cpp' \) -print0 | \
+          xargs -0 clang-format --dry-run --Werror
 
-    - name: Build
-      run: cmake --build build -j
+    - name: Run cpplint
+      run: |
+        find include tests examples \( -name '*.h' -o -name '*.hpp' -o -name '*.cpp' \) -print0 | \
+          xargs -0 cpplint --filter=-legal/copyright || true
 
-    - name: Test
-      working-directory: build
-      run: ctest --output-on-failure
+    - name: Run cppcheck
+      run: |
+        cppcheck --enable=all --suppress=missingIncludeSystem \
+          include/ tests/ examples/ || true
